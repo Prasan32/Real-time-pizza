@@ -11,6 +11,7 @@ const session=require('express-session');
 const flash=require('express-flash');
 const MongoDbStore=require('connect-mongo')(session);
 const passport=require('passport');
+const Emitter=require('events')
 
 //database connection
 const url="mongodb+srv://admin:admin123@cluster0.lmybk.mongodb.net/pizza";
@@ -28,6 +29,10 @@ let mongoStore = new MongoDbStore({
     mongooseConnection:connection,
     collection:'sessions',
 })
+
+// event emitter
+const eventEmitter=new Emitter();
+app.set('eventEmitter',eventEmitter)
 
 //session
 app.use(session({
@@ -67,6 +72,27 @@ app.set('view engine','ejs')
 require('./routes/web')(app);
 
 
-app.listen(PORT,(error,result)=>{
+const server=app.listen(PORT,(error,result)=>{
     console.log(`server is listening at ${PORT}`)
+})
+
+
+//socket
+
+const io=require('socket.io')(server)
+
+io.on('connection',(socket)=>{
+    //join 
+    socket.on('join',(orderId)=>{
+        socket.join(orderId)
+    })
+})
+
+
+eventEmitter.on('orderUpdated',(data)=>{
+    io.to(`order_${data.id}`).emit('orderUpdated',data)
+})
+
+eventEmitter.on('orderPlaced',(data)=>{
+    io.to(`adminRoom`).emit('orderPlaced',data)
 })
